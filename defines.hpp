@@ -61,4 +61,6 @@ enum gcReason {
 
 #define CREATE_GLOBAL_FILENAME(name) (globalFilename = (name).substr(0, (name).find(".trace")))
 
+#define CHECK_CLASS(object, string) (!strcmp(object->getClassName(), string))
+
 #endif

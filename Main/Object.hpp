@@ -64,6 +64,9 @@ public:
 		forwarded = value;
 	}
 
+	//marcel: needed for debugging my traversals, can be deleted if not needed
+	int komaID;
+
 private:
 	int 	myId;
 	int freed;

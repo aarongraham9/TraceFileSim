@@ -218,6 +218,8 @@ void MemoryManager::addRootToContainers(Object* object, int thread,
 	}
 }
 
+int komaCounter = 0;
+
 int MemoryManager::allocateObjectToRootset(int thread, int id,
 		int size, int refCount, int classID) {
 
@@ -244,10 +246,18 @@ int MemoryManager::allocateObjectToRootset(int thread, int id,
 		case realAlloc:
 			object = (Object*)address;
 			object->setArgs(id, size, refCount, getClassName(classID));
+			if (!strcmp(getClassName(classID), "KoMaClass")) {
+				fprintf(stderr, "created komaclass %d\n", komaCounter);
+				object->komaID = komaCounter++;
+			}
 			break;
 		default:
 		case simulatedAlloc:
 			object = new Object(id, size, refCount, address, getClassName(classID));
+			if (!strcmp(getClassName(classID), "KoMaClass")) {
+				fprintf(stderr, "created komaclass %d\n", komaCounter);
+				object->komaID = komaCounter++;
+			}
 			break;
 	}
 	object->setGeneration(0);

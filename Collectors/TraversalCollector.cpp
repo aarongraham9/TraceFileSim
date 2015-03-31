@@ -157,6 +157,8 @@ void TraversalCollector::breadthFirstCopying() {
 		myQueue.pop();
 		int kids = currentObj->getPointersMax();
 		myAllocator->moveObject(currentObj);
+		if (CHECK_CLASS(currentObj, "KoMaClass"))
+			fprintf(stderr, "komaclass %d\n", currentObj->komaID);
 		currentObj->setAge(currentObj->getAge() + 1);
 		for (i = 0; i < kids; i++) {
 			child = currentObj->getReferenceTo(i);
