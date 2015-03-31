@@ -24,6 +24,9 @@ MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int
 	initAllocators(heapSize);
 	initContainers();
 	initGarbageCollectors(highWatermark);
+
+	//TODO: remove after debugging
+	komaCounter = 0;
 }
 
 bool MemoryManager::loadClassTable(string traceFilePath) {
@@ -31,9 +34,11 @@ bool MemoryManager::loadClassTable(string traceFilePath) {
 	size_t found;
 	string className = globalFilename + ".cls";
 	string line;
+	int i = 1;
 
 	// we need to push an empty element into the vector as our classes start with id 1
 	classTable.push_back("EMPTY");
+	classContainer.push_back(NULL);
 
 	classFile.open(className.c_str());
 	if (!classFile.good())
@@ -44,6 +49,7 @@ bool MemoryManager::loadClassTable(string traceFilePath) {
 			found = line.find(": ");
 			line = line.substr(found + 2, line.size() - found - 2);
 			classTable.push_back(line);
+			classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, 0, (char*)line.c_str()));
 		}
 	} while (!classFile.eof());
 
@@ -107,6 +113,10 @@ void MemoryManager::initGarbageCollectors(int highWatermark) {
 		}
 		myGarbageCollectors[i]->setEnvironment(myAllocators[i],	myObjectContainers[i], (MemoryManager*) this, highWatermark, i, _traversal);
 	}
+}
+
+void MemoryManager::addObjectToClass(int thread, int classID, int objectID) {
+	classContainer.at(classID)->addPointer(myObjectContainers[GENERATIONS - 1]->getByID(objectID));
 }
 
 void MemoryManager::statBeforeCompact(int myGeneration) {
@@ -213,12 +223,13 @@ void MemoryManager::addRootToContainers(Object* object, int thread,
 						object->getID(), i);
 			}
 			//fprintf(stderr,"(%d)DEBUG: remset %d\n",gLineInTrace, myObjectContainers[i]->getGenRootCount());
-
 		}
 	}
 }
 
-int komaCounter = 0;
+void MemoryManager::hotnessRelation(int thread, int objectID) {
+	myObjectContainers[GENERATIONS - 1]->getByID(objectID)->increaseHotness();
+}
 
 int MemoryManager::allocateObjectToRootset(int thread, int id,
 		int size, int refCount, int classID) {

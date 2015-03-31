@@ -12,6 +12,8 @@
 #define ROOTSET_SIZE    50
 #define VISUALIZE_GCS 	1
 
+#define CLASS_OBJECT    -1
+
 //DEBUGGING
 #define DEBUG_MODE            0
 #define WRITE_DETAILED_LOG    0
@@ -26,6 +28,10 @@
 #define PROMOTIONAGEFACTOR 0
 #define SHIFTING           1
 #define SHIFTINGFACTOR     2
+
+//FOR HOTNESS
+#define HOTNESS_DECAY        0     // not implemented yet :)
+#define HOTNESS_DECAY_FACTOR 0.2
 
 enum traversalEnum {
 					breadthFirst = 0,
