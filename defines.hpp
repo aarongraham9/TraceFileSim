@@ -60,6 +60,10 @@ enum gcReason {
 					reasonForced
 				};
 
+#define DEBUGMSG(msg) (fprintf(stderr, "%s:%d - %s\n", __FILE__, __LINE__, msg))
+
+#define DEBUGMSG_IFEQUAL(left, right, msg) if (left == right) DEBUGMSG(msg)
+
 // create some fancy strings for debug output
 #define TRAVERSAL_STRING (traversal == (int)breadthFirst ? "breadthFirst" : (traversal == (int)depthFirst ? "depthFirst" : "hotness"))
 #define COLLECTOR_STRING (collector == (int)traversalGC ? "traversal" : (collector == (int)markSweepGC ? "markSweep" : "copying"))

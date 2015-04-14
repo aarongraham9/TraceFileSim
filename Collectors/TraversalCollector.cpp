@@ -155,6 +155,7 @@ void TraversalCollector::breadthFirstCopying() {
 	while (!myQueue.empty()) {
 		currentObj = myQueue.front();
 		myQueue.pop();
+
 		int kids = currentObj->getPointersMax();
 		myAllocator->moveObject(currentObj);
 		if (CHECK_CLASS(currentObj, "KoMaClass"))

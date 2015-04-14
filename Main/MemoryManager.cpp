@@ -228,7 +228,9 @@ void MemoryManager::addRootToContainers(Object* object, int thread,
 }
 
 void MemoryManager::hotnessRelation(int thread, int objectID) {
-	myObjectContainers[GENERATIONS - 1]->getByID(objectID)->increaseHotness();
+	Object *obj = myObjectContainers[GENERATIONS - 1]->getByID(objectID);
+	if (obj)
+		obj->increaseHotness();
 }
 
 int MemoryManager::allocateObjectToRootset(int thread, int id,
