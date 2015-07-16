@@ -7,19 +7,22 @@ CPP_SRCS += \
 ../Collectors/Collector.cpp \
 ../Collectors/CopyingCollector.cpp \
 ../Collectors/MarkSweepCollector.cpp \
-../Collectors/TraversalCollector.cpp
+../Collectors/TraversalCollector.cpp \
+../Collectors/ReferenceCountingCollector.cpp
 
 OBJS += \
 ./Collectors/Collector.o \
 ./Collectors/CopyingCollector.o \
 ./Collectors/MarkSweepCollector.o \
-./Collectors/TraversalCollector.o
+./Collectors/TraversalCollector.o \
+./Collectors/ReferenceCountingCollector.o
 
 CPP_DEPS += \
 ./Collectors/Collector.d \
 ./Collectors/CopyingCollector.d \
 ./Collectors/MarkSweepCollector.d \
-./Collectors/TraversalCollector.d
+./Collectors/TraversalCollector.d \
+./Collectors/ReferenceCountingCollector.d
 
 # Each subdirectory must supply rules for building sources it contributes
 Collectors/%.o: ../Collectors/%.cpp

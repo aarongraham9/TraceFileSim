@@ -104,6 +104,9 @@ void MemoryManager::initGarbageCollectors(int highWatermark) {
 			case traversalGC:
 				myGarbageCollectors[i] = new TraversalCollector();
 				break;
+			case referenceCountingGC:
+				myGarbageCollectors[i] = new ReferenceCountingCollector();
+				break;
 		}
 		myGarbageCollectors[i]->setEnvironment(myAllocators[i],	myObjectContainers[i], (MemoryManager*) this, highWatermark, i, _traversal);
 	}
@@ -194,7 +197,10 @@ void MemoryManager::addRootToContainers(Object* object, int thread,
 	int i;
 	for (i = 0; i < GENERATIONS; i++) {
 		if (i == GENERATIONS - 1) {
+			Object *old = myObjectContainers[i]->getRoot(thread, rootsetIndex);
 			myObjectContainers[i]->addToRoot(object, thread, rootsetIndex);
+			if (old && old->getReferenceCount() == 0)
+				handleDoomedObject(old);
 			//fprintf(stderr,"(%d)DEBUG: rootset %d\n",gLineInTrace, myObjectContainers[i]->getRootSize());
 			//if(myObjectContainers[1]->getRootSize() != myObjectContainers[0]->getGenRootCount()){
 				//exit(1);
@@ -261,6 +267,8 @@ int MemoryManager::requestRootDelete(int thread, int id){
 	int rootsetIndex = myObjectContainers[GENERATIONS-1]->getRootsetIndexByID(thread,id);
 	Object* oldRoot = myObjectContainers[GENERATIONS - 1]->getRoot(thread,rootsetIndex);
 	myObjectContainers[GENERATIONS - 1]->removeFromRoot(thread,rootsetIndex);
+	if (oldRoot && oldRoot->getReferenceCount() == 0)
+		handleDoomedObject(oldRoot);
 	//remove the root from rem sets.
 	int i;
 	for(i=0;i<GENERATIONS-1;i++){
@@ -280,7 +288,10 @@ int MemoryManager::requestRootAdd(int thread, int id){
 
 	Object* obj = myObjectContainers[GENERATIONS-1]->getByID(id);
 	int rootSlot = myObjectContainers[GENERATIONS-1]->getRootsetSlot(thread);
+	Object *old = myObjectContainers[GENERATIONS-1]->getRoot(thread, id);
 	myObjectContainers[GENERATIONS-1]->addToRoot(obj, thread, rootSlot);
+	if (old && old->getReferenceCount() == 0)
+		handleDoomedObject(old);
 	return 0;
 
 }
@@ -474,7 +485,7 @@ int MemoryManager::allocateObject(int thread, int parentID, int parentSlot,
 	object->setGeneration(0);
 	addToContainers(object);
 	//connect to parent
-	parent->setPointer(parentSlot, object);
+	setPointer(thread, parent->getID(), parentSlot, object->getID());
 	//add new object to remSets in needed
 	if (parentGeneration > object->getGeneration()) {
 		int i;
@@ -531,6 +542,8 @@ int MemoryManager::setPointer(int thread, int parentID, int parentSlot,
 	}
 
 	parent->setPointer(parentSlot, child);
+	if (oldChild && oldChild->getReferenceCount() == 0)
+		handleDoomedObject(oldChild);
 	if (parentGeneration > childGeneration && childID != 0) {
 		int i;
 		for (i = childGeneration; i < parentGeneration; i++) {
@@ -609,6 +622,14 @@ void MemoryManager::printStats() {
 
 void MemoryManager::dumpHeap() {
 	myObjectContainers[GENERATIONS-1]->dumpHeap();
+}
+
+void MemoryManager::handleDoomedObject(Object *o) {
+	if (!(_collector == (int)referenceCountingGC))
+		return;
+
+	myGarbageCollectors[GENERATIONS-1]->doomed.push(o);
+	myGarbageCollectors[GENERATIONS-1]->collect(reasonObjectDoomed);
 }
 
 MemoryManager::~MemoryManager() {

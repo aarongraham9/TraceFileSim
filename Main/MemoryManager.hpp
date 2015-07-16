@@ -17,6 +17,7 @@
 #include "../Collectors/MarkSweepCollector.hpp"
 #include "../Collectors/CopyingCollector.hpp"
 #include "../Collectors/TraversalCollector.hpp"
+#include "../Collectors/ReferenceCountingCollector.hpp"
 #include "../defines.hpp"
 #include <string>
 #include <vector>
@@ -69,6 +70,7 @@ private:
 	void addRootToContainers(Object* object, int thread, int rootsetIndex);
 	void addToContainers(Object* object);
 	size_t shift(int size);
+	void handleDoomedObject(Object *o);
 	
 	allocatorEnum _allocator;
 	collectorEnum _collector;

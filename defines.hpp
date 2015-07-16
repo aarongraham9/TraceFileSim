@@ -36,7 +36,8 @@ enum traversalEnum {
 enum collectorEnum {
 						copyingGC = 0,
 						markSweepGC,
-						traversalGC
+						traversalGC,
+						referenceCountingGC
 				};
 
 enum allocatorEnum {
@@ -51,7 +52,8 @@ enum gcReason {
 					reasonDebug,
 					reasonShift,
 					reasonEval,
-					reasonForced
+					reasonForced,
+					reasonObjectDoomed
 				};
 
 // create some fancy strings for debug output

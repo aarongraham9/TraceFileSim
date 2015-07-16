@@ -33,6 +33,8 @@ public:
 	void printStats();
 	virtual int promotionPhase();
 	void lastStats();
+	/* A queue to hold objects who's reference count has dropped to 0 */
+	queue<Object *> doomed;
 
 protected:
 	void postCollect();
