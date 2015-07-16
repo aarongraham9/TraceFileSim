@@ -26,6 +26,7 @@ void Object::setArgs(int id, int payloadSize, int maxPointers, char *className) 
 	for(int i = 0; i < maxPointers;i++){
 		pointers[i] = NULL;
 	}
+	referenceCount = 0;
 	myGeneration = 0;
 	myAge = 0;
 	myName = className;
@@ -77,8 +78,25 @@ int Object::setPointer(int pointerNumber, Object* target){
 		return 0;
 	}
 
+	Object *old = pointers[pointerNumber];
+	if (target)
+		target->addReference();
+	if (old)
+		old->removeReference();
 	pointers[pointerNumber] = target;
 	return 1;
+}
+
+void Object::addReference() {
+	referenceCount++;
+}
+
+void Object::removeReference() {
+	referenceCount--;
+}
+
+int Object::getReferenceCount() {
+	return referenceCount;
 }
 
 int Object::getIsAlive(){

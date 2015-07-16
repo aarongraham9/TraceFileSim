@@ -25,6 +25,9 @@ public:
 	int 	getID();
 	int 	getPayloadSize();
 	int	 	getPointerCount();
+	void  addReference();
+	void  removeReference();
+	int   getReferenceCount();
 	int 	getPointersMax();
 	Object* getReferenceTo(int pointerNumber);
 	int 	setPointer(int pointerNumber, Object* target);
@@ -81,6 +84,9 @@ private:
 
 	/*the list of objects I am pointing at*/
 	Object** pointers;
+
+	/*the number of objects refering to me.*/
+	int referenceCount;
 
 	//garbage collector stuff
 	//TODO those two are basically the same. one could be removed

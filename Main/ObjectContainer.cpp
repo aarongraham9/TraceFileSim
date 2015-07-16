@@ -84,6 +84,9 @@ int ObjectContainer::add(Object* newObject) {
 }
 
 int ObjectContainer::removeFromRoot(int thread, int root ){
+	Object *old = rootset[thread][root];
+	if (old)
+		old->removeReference();
 	rootset[thread][root] = NULL;
 	rootCount--;
 	return -1;
@@ -114,6 +117,11 @@ int ObjectContainer::addToRoot(Object* newObject, int thread, int rootSlot) {
 	if (!doesObjectExistInList(newObject)) {
 		add(newObject);
 	}
+	Object *old = rootset[thread][rootSlot];
+	if (newObject)
+		newObject->addReference();
+	if (old)
+		old->removeReference();
 	rootset[thread][rootSlot] = newObject;
 	rootCount++;
 
