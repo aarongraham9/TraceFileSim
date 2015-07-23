@@ -8,18 +8,24 @@ CPP_SRCS += \
 ../Main/Object.cpp \
 ../Main/ObjectContainer.cpp \
 ../Main/Simulator.cpp 
+../Main/Simulator.cpp \
+../Main/ClassManager.cpp
 
 OBJS += \
 ./Main/MemoryManager.o \
 ./Main/Object.o \
 ./Main/ObjectContainer.o \
 ./Main/Simulator.o 
+./Main/Simulator.o \
+./Main/ClassManager.o
 
 CPP_DEPS += \
 ./Main/MemoryManager.d \
 ./Main/Object.d \
 ./Main/ObjectContainer.d \
 ./Main/Simulator.d 
+./Main/Simulator.d \
+./Main/ClassManager.d
 
 
 # Each subdirectory must supply rules for building sources it contributes

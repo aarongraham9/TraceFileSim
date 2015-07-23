@@ -39,6 +39,11 @@ private:
 	void addToRoot(string line);
 	void readObject(string line);
 	void allocateToClassObject(string line);
+	int parseAttributeFromTraceLine(char attributeIdentifier, string line);
+
+	void referenceOperationClassField(string line);
+	void readOperation(string line);
+	void storeOperation(string line);
 
 	ifstream myTraceFile;
 	

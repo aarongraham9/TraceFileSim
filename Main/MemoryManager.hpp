@@ -10,6 +10,7 @@
 
 #include "Object.hpp"
 #include "ObjectContainer.hpp"
+#include "ClassManager.hpp"
 #include "../Allocators/Allocator.hpp"
 #include "../Allocators/RealAllocator.hpp"
 #include "../Allocators/SimulatedAllocator.hpp"
@@ -53,12 +54,12 @@ public:
 	void clearRemSets();
 	void requestRemSetAdd(Object* currentObj);
 	char *getClassName(int classNumber);
-	bool loadClassTable(string traceFilePath);
 	bool hasClassTable();
 	void forceGC();
 	void lastStats();
 	void hotnessRelation(int thread, int objectID);
 	void addObjectToClass(int thread, int classID, int objectID);
+	void dumpHeap();
 
 private:
 	void collect(int thread, int reason);
@@ -82,6 +83,7 @@ private:
 	bool classTableLoaded;
 	vector<string> classTable;
 	int maxThreads;
+	ClassManager *classManager;
 
 	Allocator* myAllocators[GENERATIONS];
 	ObjectContainer* myObjectContainers[GENERATIONS];

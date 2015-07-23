@@ -30,6 +30,7 @@ MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int
 	threadToThreadGroup = (int*)malloc(sizeof(int) * maxThreads);
 	for (i = 0; i < maxThreads; i++)
 		threadToThreadGroup[i] = NO_THREAD_GROUP;
+	classManager = new ClassManager();
 
 	initAllocators(heapSize);
 	initContainers();	
@@ -40,38 +41,6 @@ MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int
 
 	//TODO: remove after debugging
 	komaCounter = 0;
-}
-
-bool MemoryManager::loadClassTable(string traceFilePath) {
-	ifstream classFile;
-	size_t found;
-	string className = globalFilename + ".cls";
-	string line;
-	int i = 1;
-	int j = 1;
-
-	// we need to push an empty element into the vector as our classes start with id 1
-	classTable.push_back("EMPTY");
-	classContainer.push_back(NULL);
-
-	classFile.open(className.c_str());
-	if (!classFile.good())
-		return false;
-
-	do {
-		if(getline(classFile, line)) {
-			j++;
-			found = line.find(": ");
-			line = line.substr(found + 2, line.size() - found - 2);
-			classTable.push_back(line);
-			classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, CLASS_OBJECT, 0, (char*)line.c_str()));
-		}
-	} while (!classFile.eof());
-
-	classTableLoaded = true;
-	fprintf(stderr, "Loaded %d classes\n", j);
-
-	return true;
 }
 
 // we had to change some stuff for the tlh collector
@@ -104,19 +73,12 @@ void MemoryManager::printThreadGroup(int tg) {
 	fprintf(stderr, " )\n");
 }
 
-
 char *MemoryManager::getClassName(int classNumber) {
-	if (!hasClassTable())
-		return (char*)"CLASS_TABLE_NOT_LOADED";
-
-	if (classNumber > (int)classTable.size())
-		return (char*)"OUT_OF_BOUNDS";
-
-	return (char*)classTable.at(classNumber).c_str();
+	return classManager->getClassName(classNumber);
 }
 
 bool MemoryManager::hasClassTable() {
-	return classTableLoaded;
+	return classManager->isLoaded();
 }
 
 // tested and works :)
@@ -253,15 +215,11 @@ int MemoryManager::evalCollect(){
 
 size_t MemoryManager::allocate(int thread, int size, int generation) {
 	//check if legal generation
-	if (generation < 0 && generation > GENERATIONS - 1) {
+	if (generation < 0 || generation > GENERATIONS - 1) {
 		fprintf(stderr, "ERROR (Line %d): allocate to illegal generation: %d\n",
 				gLineInTrace, generation);
 		exit(1);
 	}
-	int reason = (int)reasonFailedAlloc;
-//	if(isPromotion == 1){
-//		reason = 4;
-//	}
 	size_t result = -1;
 	int gen = generation;
 	//try allocating in the generation
@@ -275,11 +233,12 @@ size_t MemoryManager::allocate(int thread, int size, int generation) {
 					"(%d) Trigger Gc in generation %d.\n",
 					gLineInTrace, gen);
 		}
-		collect(thread, reason);
 		if (myAllocators[generation]->isThreadRegionAllocator())
 			result = myAllocators[generation]->gcAllocate(size, thread);
 		else
 			result = myAllocators[generation]->gcAllocate(size);
+		myGarbageCollectors[gen]->collect(reasonFailedAlloc);
+		result = myAllocators[generation]->gcAllocate(size);
 		gen++;
 	}
 	if (gen > generation) {
@@ -774,6 +733,10 @@ void MemoryManager::printStats() {
 		myGarbageCollectors[i]->printStats();
 	}
 
+}
+
+void MemoryManager::dumpHeap() {
+	myObjectContainers[GENERATIONS-1]->dumpHeap();
 }
 
 MemoryManager::~MemoryManager() {
