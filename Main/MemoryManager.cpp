@@ -24,7 +24,6 @@ MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int
 
 	isThreadLocalHeapCollector = false;
 
-	classTableLoaded = false;
 	maxThreads = determineHowManyThreads();
 
 	threadToThreadGroup = (int*)malloc(sizeof(int) * maxThreads);

@@ -80,8 +80,6 @@ private:
 	collectorEnum _collector;
 	traversalEnum _traversal;
 
-	bool classTableLoaded;
-	vector<string> classTable;
 	int maxThreads;
 	ClassManager *classManager;
 
