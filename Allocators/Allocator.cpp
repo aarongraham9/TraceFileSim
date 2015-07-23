@@ -27,12 +27,22 @@ void Allocator::setHalfHeapSize(bool value) {
 }
 
 Allocator::Allocator() {
+	isThreadRegionSplit = false;
 }
 
 int Allocator::getFreeSize() {
 	return isSplitHeap ? (overallHeapSize / 2) - statBytesAllocated : overallHeapSize - statBytesAllocated;
 }
 
+void Allocator::setThreadRegions(bool value, int threads) {
+	isThreadRegionSplit = value;
+	if (value == true) {
+		int i;
+		myLastSuccessAddressThreads.resize(threads);
+		for (i = 0; i < threads; i++)
+			myLastSuccessAddressThreads.at(i) = myHeapSizeOldSpace / i;
+	}
+}
 
 size_t Allocator::gcAllocate(int size) {
 	size_t address = allocate(size, oldSpaceOffset, myHeapSizeOldSpace, myLastSuccessAddressOldSpace);
@@ -41,6 +51,17 @@ size_t Allocator::gcAllocate(int size) {
 	myLastSuccessAddressOldSpace = address;
 	return myLastSuccessAddressOldSpace;
 }
+
+size_t Allocator::gcAllocate(int thread, int size) {
+	size_t threadLowerBounds = myHeapSizeOldSpace / thread;
+	size_t threadUpperBounds = myHeapSizeOldSpace / (thread + 1) - 1;
+	size_t address = allocate(size, threadLowerBounds, threadUpperBounds, myLastSuccessAddressThreads.at(thread));
+	if (address == (size_t)-1)
+		return (size_t)-1;
+	myLastSuccessAddressThreads.at(thread) = address;
+	return myLastSuccessAddressThreads.at(thread);
+}
+
 
 size_t Allocator::allocateInNewSpace(int size) {
 	size_t address = (size_t)allocate(size, newSpaceOffset, myHeapSizeNewSpace, myLastSuccessAddressNewSpace);

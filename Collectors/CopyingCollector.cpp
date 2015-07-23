@@ -55,6 +55,9 @@ void CopyingCollector::mark(){
 	//breadth first through the tree
 	while(!myQueue.empty()){
 		Object* currentObj = myQueue.front();
+		if (currentObj->getID() == NULL_OBJECT)
+			continue;
+		
 		myQueue.pop();
 		Object* child;
 		int kids = currentObj->getPointersMax();
@@ -89,7 +92,7 @@ void CopyingCollector::enqueueAllRoots(){
 	Object* currentObj;
 	int i, j;
 
-	for(i = 0 ; i < NUM_THREADS ; i++){
+	for(i = 0 ; i < maxThreads ; i++){
 		for(j = 0 ; j < ROOTSET_SIZE ; j++){
 			currentObj = myObjectContainer->getRoot(i,j);
 			if(currentObj && currentObj->getVisited() == 0){

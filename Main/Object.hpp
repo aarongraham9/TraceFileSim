@@ -8,17 +8,24 @@
 #ifndef OBJECT_HPP_
 #define OBJECT_HPP_
 
+#include "../defines.hpp"
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
+
+// still in development, set to 0 if you experience any problems
+#ifndef OBJ_POINTER_DEBUG
+#define OBJ_POINTER_DEBUG
+#define OBJ_USE_VECTOR 0
+#endif
 
 using std::vector;
 namespace traceFileSimulator {
 
 class Object {
 public:
-	Object(int id, int payloadSize, int maxPointers, int address, char *className);
-	void setArgs(int id, int payloadSize, int maxPointers, char *className);
+	Object(int id, int thread, int payloadSize, int maxPointers, int address, char *className);
+	void setArgs(int id, int thread, int payloadSize, int maxPointers, char *className);
 	virtual ~Object();
 	size_t 	getAddress();
 	void 	updateAddress(size_t newAddress);
@@ -64,6 +71,28 @@ public:
 		forwarded = value;
 	}
 
+	void increaseHotness() {
+		hotness++;
+	}
+
+	double getHotness() {
+		return hotness;
+	}
+
+	void decayHotness() {
+		if (HOTNESS_DECAY)
+			hotness *= (1 - HOTNESS_DECAY_FACTOR);
+	}
+
+	void addPointer(Object* object);
+
+	int getThread() {
+		return myThread;
+	}
+
+	//marcel: needed for debugging my traversals, can be deleted if not needed
+	int komaID;
+
 private:
 	int 	myId;
 	int freed;
@@ -80,12 +109,18 @@ private:
 	size_t myAddress;
 
 	/*the list of objects I am pointing at*/
+#if(OBJ_USE_VECTOR == 1)
+	vector<Object*> pointers;
+#else
 	Object** pointers;
+#endif
 
 	//garbage collector stuff
 	//TODO those two are basically the same. one could be removed
 	int isVisited;
 	int isAlive;
+
+	int myThread;
 
 	//genCon
 	int myAge;
@@ -93,6 +128,8 @@ private:
 
     char *myName;
     bool forwarded;
+
+    double hotness;
 
 };
 

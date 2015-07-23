@@ -44,6 +44,7 @@ public:
 	int countElements();
 	bool isAlreadyRoot(int thread, int id);
 	void forwardObject(int slot);
+
 private:
 	int getListSlot();
 	bool doesObjectExistInList(Object *queryObject);

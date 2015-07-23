@@ -21,7 +21,7 @@ Collector::Collector() {
 	shortestGC = 999999999;
 	longestGC = 0;
 	allGCs = 0;
-
+	isRegionBased = false;
 }
 
 void Collector::setEnvironment(Allocator* allocator, ObjectContainer* container, MemoryManager* memManager, int watermark, int generation, int traversal) {
@@ -93,9 +93,16 @@ void Collector::printStats() {
 
 	statLiveObjectCount = myObjectContainer->countElements();
 	fprintf(gLogFile, "%8d | %14s | %10d | %14d "
-			"| %13d | %10d | %10d | %10d | %4.3f\n", gLineInTrace,
+			"| %13d | %10d | %10d | %10d | %4.3f | ", gLineInTrace,
 			statCollectionReasonString, statGcNumber, statFreedObjects,
 			statLiveObjectCount, heapUsed, statFreeSpaceOnHeap, myGeneration, elapsed_secs);
+	{
+		unsigned int i;
+		for (i = 0; i < gcThreads.size(); i++)
+			fprintf(gLogFile, "%d,", gcThreads.at(i));
+	}
+
+	fprintf(gLogFile, "\n");
 	fflush(gLogFile);
 	if (DEBUG_MODE == 1 && WRITE_ALLOCATION_INFO == 1) {
 		myAllocator->printStats();

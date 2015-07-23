@@ -13,9 +13,11 @@
 #include <queue>
 #include <stack>
 #include <string>
+#include <stdlib.h>
 #include <ctime>
 #include "../defines.hpp"
 #include <stdio.h>
+#include <vector>
 
 using namespace std;
 
@@ -33,6 +35,43 @@ public:
 	void printStats();
 	virtual int promotionPhase();
 	void lastStats();
+	bool hasThreadRegions() {
+		return isRegionBased;
+	};
+	void addThread(int thread) {
+		gcThreads.push_back(thread);
+	}
+	void clearThreadList() {
+		gcThreads.clear();
+	}
+	void setMaxThreads(int threads) {
+		maxThreads = threads;
+	}
+
+	void getThreadGroup(vector<vector<int> > tg) {
+		threadGroup = tg;
+	}
+	int howManyThreadGroups() {
+		unsigned int i;
+		int j = 0;
+
+		for (i = 0; i < threadGroup.size(); i++)
+			if (!threadGroup.at(i).empty())
+				j++;
+
+		return j;
+	}
+	int howManyThreadsInGroups() {
+		unsigned int i;
+		int j = 0;
+
+		for (i = 0; i < threadGroup.size(); i++)
+			if (!threadGroup.at(i).empty())
+				j += threadGroup.at(i).size();
+
+		return j;
+	}
+
 
 protected:
 	void postCollect();
@@ -57,8 +96,14 @@ protected:
 	double shortestGC;
 	double longestGC;
 	double allGCs;
+
+	bool isRegionBased;
 	
 	MemoryManager* myMemManager;
+	int maxThreads;
+	vector<int> gcThreads;
+
+	vector<vector<int> > threadGroup;
 
 	traversalEnum order;
 };
