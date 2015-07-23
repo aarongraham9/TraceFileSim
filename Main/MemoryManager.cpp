@@ -13,10 +13,6 @@ extern int gLineInTrace;
 extern string globalFilename;
 extern float genRatio;
 
-#ifndef FUCKED_UP_CLASS_FORMAT
-#define FUCKED_UP_CLASS_FORMAT 1
-#endif
-
 namespace traceFileSimulator {
 
 MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int traversal, int allocator) {
@@ -42,8 +38,6 @@ MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int
 	nextThreadGroup = 0;
 	threadGroup.resize(maxThreads); // the assumption is that we can never have more thread groups than threads
 
-	
-
 	//TODO: remove after debugging
 	komaCounter = 0;
 }
@@ -67,15 +61,10 @@ bool MemoryManager::loadClassTable(string traceFilePath) {
 	do {
 		if(getline(classFile, line)) {
 			j++;
-			if (FUCKED_UP_CLASS_FORMAT) {
-				classTable.push_back(line);
-				classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, CLASS_OBJECT, 0, (char*)line.c_str()));
-			} else {
-				found = line.find(": ");
-				line = line.substr(found + 2, line.size() - found - 2);
-				classTable.push_back(line);
-				classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, CLASS_OBJECT, 0, (char*)line.c_str()));
-			}
+			found = line.find(": ");
+			line = line.substr(found + 2, line.size() - found - 2);
+			classTable.push_back(line);
+			classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, CLASS_OBJECT, 0, (char*)line.c_str()));
 		}
 	} while (!classFile.eof());
 
