@@ -11,19 +11,38 @@ extern FILE* gLogFile;
 extern FILE* gDetLog;
 extern int gLineInTrace;
 extern string globalFilename;
+extern float genRatio;
+
+#ifndef FUCKED_UP_CLASS_FORMAT
+#define FUCKED_UP_CLASS_FORMAT 1
+#endif
 
 namespace traceFileSimulator {
 
 MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int traversal, int allocator) {
+	int i;
+
 	_allocator = (allocatorEnum)allocator;
 	_collector = (collectorEnum)collector;
 	_traversal = (traversalEnum)traversal;
 
+	isThreadLocalHeapCollector = false;
+
 	classTableLoaded = false;
+	maxThreads = determineHowManyThreads();
+
+	threadToThreadGroup = (int*)malloc(sizeof(int) * maxThreads);
+	for (i = 0; i < maxThreads; i++)
+		threadToThreadGroup[i] = NO_THREAD_GROUP;
 
 	initAllocators(heapSize);
-	initContainers();
+	initContainers();	
 	initGarbageCollectors(highWatermark);
+
+	nextThreadGroup = 0;
+	threadGroup.resize(maxThreads); // the assumption is that we can never have more thread groups than threads
+
+	
 
 	//TODO: remove after debugging
 	komaCounter = 0;
@@ -35,6 +54,7 @@ bool MemoryManager::loadClassTable(string traceFilePath) {
 	string className = globalFilename + ".cls";
 	string line;
 	int i = 1;
+	int j = 1;
 
 	// we need to push an empty element into the vector as our classes start with id 1
 	classTable.push_back("EMPTY");
@@ -46,17 +66,55 @@ bool MemoryManager::loadClassTable(string traceFilePath) {
 
 	do {
 		if(getline(classFile, line)) {
-			found = line.find(": ");
-			line = line.substr(found + 2, line.size() - found - 2);
-			classTable.push_back(line);
-			classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, 0, (char*)line.c_str()));
+			j++;
+			if (FUCKED_UP_CLASS_FORMAT) {
+				classTable.push_back(line);
+				classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, CLASS_OBJECT, 0, (char*)line.c_str()));
+			} else {
+				found = line.find(": ");
+				line = line.substr(found + 2, line.size() - found - 2);
+				classTable.push_back(line);
+				classContainer.push_back(new Object(i++, 0, CLASS_OBJECT, CLASS_OBJECT, 0, (char*)line.c_str()));
+			}
 		}
 	} while (!classFile.eof());
 
 	classTableLoaded = true;
+	fprintf(stderr, "Loaded %d classes\n", j);
 
-	return true;;
+	return true;
 }
+
+// we had to change some stuff for the tlh collector
+void MemoryManager::collect(int thread, int reason) {
+	myGarbageCollectors[GENERATIONS-1]->clearThreadList();
+	myGarbageCollectors[GENERATIONS-1]->getThreadGroup(threadGroup);
+	if (isThreadLocalHeapCollector) {
+		if (thread == -1) {
+			myGarbageCollectors[GENERATIONS-1]->collect(reason);	
+		} else if (threadToThreadGroup[thread] != NO_THREAD_GROUP ) {
+			unsigned int i;
+			for (i = 0; i < threadGroup.at(threadToThreadGroup[thread]).size(); i++)
+				myGarbageCollectors[GENERATIONS-1]->addThread(threadGroup.at(threadToThreadGroup[thread]).at(i));	
+			myGarbageCollectors[GENERATIONS-1]->collect(reason);
+		} else {
+			myGarbageCollectors[GENERATIONS-1]->addThread(thread);
+			myGarbageCollectors[GENERATIONS-1]->collect(reason);	
+		}
+	} else {
+		myGarbageCollectors[GENERATIONS-1]->collect(reason);
+	}
+}
+
+void MemoryManager::printThreadGroup(int tg) {
+	unsigned int i;
+	fprintf(stderr, "thread group %d: (", tg);
+	for (i = 0; i < threadGroup.at(tg).size(); i++) {
+		fprintf(stderr, " %d", threadGroup.at(tg).at(i));
+	}
+	fprintf(stderr, " )\n");
+}
+
 
 char *MemoryManager::getClassName(int classNumber) {
 	if (!hasClassTable())
@@ -72,6 +130,37 @@ bool MemoryManager::hasClassTable() {
 	return classTableLoaded;
 }
 
+// tested and works :)
+int MemoryManager::determineHowManyThreads() {
+	int threads = 0;
+
+	ifstream traceFile;
+	size_t pos, length;
+	string traceName = globalFilename + ".trace";
+	string line;
+	int i = 0;
+
+	traceFile.open(traceName.c_str());
+	if (!traceFile.good())
+		return false;
+
+	do {
+		if(getline(traceFile, line)) {
+			pos = line.find('T') + 1;
+			length = line.find(' ', pos) - pos;
+			i = atoi(line.substr(pos, length).c_str());
+			if (i > threads)
+				threads = i;
+		}
+	} while (!traceFile.eof());
+
+	fprintf(stderr, "The trace has %d threads\n", threads);
+
+	threads++; // because we start counting at 0
+
+	return threads;
+}
+
 void MemoryManager::initAllocators(int heapsize) {
 	int i;
 	int* genSizes = computeHeapsizes(heapsize);
@@ -79,9 +168,17 @@ void MemoryManager::initAllocators(int heapsize) {
 		switch (_allocator) {
 			case realAlloc:
 				myAllocators[i] = new RealAllocator();
+				/* allocator regions need debugging, disabled for now
+				if (isThreadLocalHeapCollector)
+					myAllocators[i]->setThreadRegions(true, maxThreads);
+				*/
 				break;
 			case simulatedAlloc:
 				myAllocators[i] = new SimulatedAllocator();
+				/*
+				if (isThreadLocalHeapCollector)
+					myAllocators[i]->setThreadRegions(true, maxThreads);
+				*/
 				break;
 		}
 		myAllocators[i]->initializeHeap(genSizes[i]);
@@ -112,6 +209,7 @@ void MemoryManager::initGarbageCollectors(int highWatermark) {
 				break;
 		}
 		myGarbageCollectors[i]->setEnvironment(myAllocators[i],	myObjectContainers[i], (MemoryManager*) this, highWatermark, i, _traversal);
+		myGarbageCollectors[i]->setMaxThreads(maxThreads);
 	}
 }
 
@@ -148,7 +246,7 @@ size_t MemoryManager::shift(int size){
 		if(WRITE_DETAILED_LOG==1){
 			fprintf(gDetLog,"(%d) SHIFTING for %d\n",gLineInTrace,size);
 		}
-		myGarbageCollectors[GENERATIONS-1]->collect((int)reasonShift);
+		collect(-1, (int)reasonShift);
 		outOfMemory = myGarbageCollectors[GENERATIONS-1]->promotionPhase();
 		if(outOfMemory==-1){
 			fprintf(stderr,"(%d) OUT OF MEMORY: (%d)\n",gLineInTrace,size);
@@ -160,11 +258,11 @@ size_t MemoryManager::shift(int size){
 }
 
 int MemoryManager::evalCollect(){
-	myGarbageCollectors[GENERATIONS-1]->collect((int)reasonEval);
+	collect(-1, (int)reasonEval);
 	return 0;
 }
 
-size_t MemoryManager::allocate(int size, int generation) {
+size_t MemoryManager::allocate(int thread, int size, int generation) {
 	//check if legal generation
 	if (generation < 0 && generation > GENERATIONS - 1) {
 		fprintf(stderr, "ERROR (Line %d): allocate to illegal generation: %d\n",
@@ -178,15 +276,21 @@ size_t MemoryManager::allocate(int size, int generation) {
 	size_t result = -1;
 	int gen = generation;
 	//try allocating in the generation
-	result = myAllocators[generation]->gcAllocate(size);
+	if (myAllocators[generation]->isThreadRegionAllocator())
+		result = myAllocators[generation]->gcAllocate(size, thread);
+	else
+		result = myAllocators[generation]->gcAllocate(size);
 	while (result == (size_t)-1 && gen < GENERATIONS) {
 		if (WRITE_DETAILED_LOG == 1) {
 			fprintf(gDetLog,
 					"(%d) Trigger Gc in generation %d.\n",
 					gLineInTrace, gen);
 		}
-		myGarbageCollectors[gen]->collect(reason);
-		result = myAllocators[generation]->gcAllocate(size);
+		collect(thread, reason);
+		if (myAllocators[generation]->isThreadRegionAllocator())
+			result = myAllocators[generation]->gcAllocate(size, thread);
+		else
+			result = myAllocators[generation]->gcAllocate(size);
 		gen++;
 	}
 	if (gen > generation) {
@@ -194,9 +298,11 @@ size_t MemoryManager::allocate(int size, int generation) {
 		myGarbageCollectors[gen - 1]->promotionPhase();
 	}
 
-	if(result == (size_t)-1 && SHIFTING == 1){
-		//try shifting
-		result = shift(size);
+	if (ALLOW_SHIFTING) {
+		if(result == (size_t)-1 && SHIFTING == 1){
+			//try shifting
+			result = shift(size);
+		}
 	}
 
 	return result;
@@ -244,7 +350,7 @@ int MemoryManager::allocateObjectToRootset(int thread, int id,
 				thread, rootsetIndex, id);
 	}
 	//get allocation address in Generation 0
-	size_t address = allocate(size, 0);
+	size_t address = allocate(thread, size, 0);
 	if (address == (size_t)-1) {
 		fprintf(gLogFile, "Failed to allocate %d bytes in trace line %d.\n",
 				size, gLineInTrace);
@@ -258,17 +364,17 @@ int MemoryManager::allocateObjectToRootset(int thread, int id,
 	switch (_allocator) {
 		case realAlloc:
 			object = (Object*)address;
-			object->setArgs(id, size, refCount, getClassName(classID));
+			object->setArgs(id, thread, size, refCount, getClassName(classID));
 			if (!strcmp(getClassName(classID), "KoMaClass")) {
-				fprintf(stderr, "created komaclass %d\n", komaCounter);
+				fprintf(stderr, "created komaclass %d for id %d\n", komaCounter, id);
 				object->komaID = komaCounter++;
 			}
 			break;
 		default:
 		case simulatedAlloc:
-			object = new Object(id, size, refCount, address, getClassName(classID));
+			object = new Object(id, thread, size, refCount, address, getClassName(classID));
 			if (!strcmp(getClassName(classID), "KoMaClass")) {
-				fprintf(stderr, "created komaclass %d\n", komaCounter);
+				fprintf(stderr, "created komaclass %d for id %d\n", komaCounter, id);
 				object->komaID = komaCounter++;
 			}
 			break;
@@ -278,7 +384,7 @@ int MemoryManager::allocateObjectToRootset(int thread, int id,
 	addRootToContainers(object, thread, rootsetIndex);
 
 	if (DEBUG_MODE == 1) {	
-		myGarbageCollectors[GENERATIONS - 1]->collect(reasonDebug);
+		collect(-1, reasonDebug);
 		myGarbageCollectors[GENERATIONS - 1]->promotionPhase();
 	}
 	return 0;
@@ -342,6 +448,10 @@ void MemoryManager::requestDelete(Object* object, int gGC) {
 	//now free in allocator and delete object
 	myAllocators[objGeneration]->gcFree(object);
 	myObjectContainers[objGeneration]->deleteObject(object, !myAllocators[objGeneration]->isRealAllocator());
+}
+
+void MemoryManager::dissolveThreadGroups(int thread1, int thread2) {
+	// FUTURE WORK :)
 }
 
 void MemoryManager::requestFree(Object* object) {
@@ -468,7 +578,7 @@ int MemoryManager::allocateObject(int thread, int parentID, int parentSlot,
 	}
 
 	//get allocation address
-	int address = allocate(size, 0);
+	int address = allocate(thread, size, 0);
 	if (address == -1) {
 		fprintf(gLogFile, "Failed to allocate %d bytes in trace line %d.\n",
 				size, gLineInTrace);
@@ -497,7 +607,7 @@ int MemoryManager::allocateObject(int thread, int parentID, int parentSlot,
 		}
 	}
 	//create Object
-	Object* object = new Object(id, size, refCount, address, getClassName(classID));
+	Object* object = new Object(id, thread, size, refCount, address, getClassName(classID));
 	object->setGeneration(0);
 	addToContainers(object);
 	//connect to parent
@@ -515,7 +625,7 @@ int MemoryManager::allocateObject(int thread, int parentID, int parentSlot,
 		}
 	}
 	if (DEBUG_MODE == 1) {
-		myGarbageCollectors[GENERATIONS - 1]->collect(reasonDebug);
+		collect(-1, reasonDebug);
 		myGarbageCollectors[GENERATIONS - 1]->promotionPhase();
 	}
 	return 0;
@@ -570,8 +680,51 @@ int MemoryManager::setPointer(int thread, int parentID, int parentSlot,
 		}
 	}
 	if (DEBUG_MODE == 1) {
-		myGarbageCollectors[GENERATIONS - 1]->collect(reasonDebug);
+		collect(-1, reasonDebug);
 		myGarbageCollectors[GENERATIONS - 1]->promotionPhase();
+	}
+
+	// create thread group if an object escaped
+	// if both objects are in different threads AND if they are not in the same thread group
+	// tested and works :)
+	if (isThreadLocalHeapCollector && child) {
+		if (CHECK_THREAD(parent, child) && DIFFERENT_THREAD_GROUPS(parent, child)) {
+			if (IS_IN_THREAD_GROUP(parent) && !IS_IN_THREAD_GROUP(child)) { // child inherits the parents thread group
+				T_TO_TG(child) = T_TO_TG(parent);
+				TGROUP(parent).push_back(OBJ_THREAD(child));
+				printThreadGroup(T_TO_TG(parent));
+			}
+			else if (!IS_IN_THREAD_GROUP(parent) && IS_IN_THREAD_GROUP(child)) { // parent inherits the parents thread group
+				T_TO_TG(parent) = T_TO_TG(child);
+				TGROUP(child).push_back(OBJ_THREAD(parent));
+				printThreadGroup(T_TO_TG(child));
+			}
+			else if (IS_IN_THREAD_GROUP(parent) && IS_IN_THREAD_GROUP(child)) { // merge both thread groups
+				unsigned int i;
+				for (i = 0; i < TGROUP(child).size(); i++)
+					TGROUP(parent).push_back(TGROUP(child).at(i));
+				TGROUP(child).clear();
+				T_TO_TG(child) = T_TO_TG(parent);		
+				printThreadGroup(T_TO_TG(parent));
+			}
+			else { // create a thread group
+				// find next empty thread group
+				unsigned int i;
+				nextThreadGroup = -1;
+				for (i = 0; i < threadGroup.size(); i++) {
+					if (threadGroup.at(i).empty()) {
+						nextThreadGroup = i;
+						break;
+					}
+				}
+
+				T_TO_TG(child) = nextThreadGroup;
+				T_TO_TG(parent) = nextThreadGroup;
+				threadGroup.at(nextThreadGroup).push_back(OBJ_THREAD(parent));
+				threadGroup.at(nextThreadGroup).push_back(OBJ_THREAD(child));
+				printThreadGroup(T_TO_TG(parent));
+			}
+		}
 	}
 	return 0;
 }
@@ -592,7 +745,7 @@ void MemoryManager::requestRemSetAdd(Object* currentObj){
 }
 
 void MemoryManager::forceGC() {
-	myGarbageCollectors[GENERATIONS-1]->collect((int)reasonForced);
+	collect(-1, (int)reasonForced);
 }
 
 void MemoryManager::lastStats() {
@@ -608,8 +761,8 @@ int* MemoryManager::computeHeapsizes(int heapSize) {
 		if (i == 0) { // the youngest space gets what is left over
 			result[i] = heapLeft;
 		} else {
-			result[i] = ceil(heapLeft * (1.0 - GENRATIO)); //no byte is left behind
-			heapLeft = heapLeft * GENRATIO;
+			result[i] = ceil(heapLeft * (1.0 - genRatio)); //no byte is left behind
+			heapLeft = heapLeft * genRatio;
 		}
 		if (GEN_DEBUG == 1) {
 			printf("GENDEBUG: G%d: %d\n", i, result[i]);

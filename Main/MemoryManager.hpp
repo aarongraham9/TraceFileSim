@@ -61,15 +61,19 @@ public:
 	void addObjectToClass(int thread, int classID, int objectID);
 
 private:
+	void collect(int thread, int reason);
+	void printThreadGroup(int tg);
+	int determineHowManyThreads();
 	bool isAlreadyRoot(int thread, int id);
 	int* computeHeapsizes(int heapSize);
 	void initAllocators(int heapsize);
 	void initContainers();
 	void initGarbageCollectors(int highWatermark);
-	size_t allocate(int size, int generation);
+	size_t allocate(int thread, int size, int generation);
 	void addRootToContainers(Object* object, int thread, int rootsetIndex);
 	void addToContainers(Object* object);
 	size_t shift(int size);
+	void dissolveThreadGroups(int thread1, int thread2);
 	
 	allocatorEnum _allocator;
 	collectorEnum _collector;
@@ -77,11 +81,18 @@ private:
 
 	bool classTableLoaded;
 	vector<string> classTable;
+	int maxThreads;
 
 	Allocator* myAllocators[GENERATIONS];
 	ObjectContainer* myObjectContainers[GENERATIONS];
 	vector<Object*> classContainer;
 	Collector* myGarbageCollectors[GENERATIONS];
+
+	int *threadToThreadGroup;
+	vector<vector<int> > threadGroup;
+	int nextThreadGroup;
+	bool isThreadLocalHeapCollector;
+
 	int stats[GENERATIONS];
 
 	int komaCounter;

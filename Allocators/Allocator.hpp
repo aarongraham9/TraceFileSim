@@ -23,6 +23,7 @@ public:
 	virtual ~Allocator();
 
 	size_t gcAllocate(int size);
+	size_t gcAllocate(int thread, int size);
 	virtual void gcFree(Object* object);
 
 	//used mainly by garbage collector
@@ -36,6 +37,11 @@ public:
 	virtual void freeAllSectors();
 
 	void setHalfHeapSize(bool value);
+	void setThreadRegions(bool value, int threads);
+	bool isThreadRegionAllocator() {
+		return isThreadRegionSplit;
+	}
+
 	virtual void moveObject(Object *object);
 	void swapHeaps();
 
@@ -55,14 +61,15 @@ protected:
 	void setBitUnused(unsigned int address);
 	virtual size_t allocate(int size, int lower, int upper, size_t lastAddress);
 
-
 	bool isSplitHeap;
+	bool isThreadRegionSplit;
 	char* myHeapBitMap;
 
 	int myHeapSizeOldSpace;
 	int myHeapSizeNewSpace;
 	size_t myLastSuccessAddressOldSpace;
 	size_t myLastSuccessAddressNewSpace;
+	vector<size_t> myLastSuccessAddressThreads;
 	int newSpaceOffset;
 	int oldSpaceOffset;
 	int overallHeapSize;

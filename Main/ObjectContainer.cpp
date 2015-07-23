@@ -127,6 +127,10 @@ int ObjectContainer::addToRoot(Object* newObject, int thread, int rootSlot) {
 
 Object* ObjectContainer::getByID(int id) {
 	unsigned int i;
+
+	if (id == 0)
+		return NULL;
+
 	for (i = 0; i < objectList.size(); i++) {
 		if (objectList.at(i) != NULL) {
 			int currentId = objectList.at(i)->getID();

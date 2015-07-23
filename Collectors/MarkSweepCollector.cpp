@@ -10,6 +10,7 @@
 extern int gLineInTrace;
 extern FILE* gLogFile;
 extern FILE* gDetLog;
+extern short promotionAge;
 
 FILE* gcFile;
 
@@ -59,6 +60,9 @@ void MarkSweepCollector::mark() {
 	while (!myQueue.empty()) {
 		Object* currentObj = myQueue.front();
 		myQueue.pop();
+		if (currentObj->getID() == NULL_OBJECT)
+			continue;		
+		
 		Object* child;
 		int kids = currentObj->getPointersMax();
 		currentObj->setIsAlive(1);
@@ -111,7 +115,7 @@ void MarkSweepCollector::enqueueAllRoots() {
 		//we clear all rem sets and fill them again while performing the marking
 		myMemManager->clearRemSets();
 
-		for (i = 0; i < NUM_THREADS; i++) {
+		for (i = 0; i < maxThreads; i++) {
 			for (j = 0; j < myObjectContainer->getRootsetSize(i) ; j++) {
 				currentObj = myObjectContainer->getRoot(i, j);
 				if (currentObj && currentObj->getVisited() == 0) {
@@ -232,7 +236,7 @@ int MarkSweepCollector::promotionPhase() {
 		if (currentObj && currentObj->getGeneration() < (GENERATIONS - 1)) {
 			int age = currentObj->getAge();
 			if (age
-					>= PROMOTIONAGE + PROMOTIONAGE * myGeneration
+					>= promotionAge + promotionAge * myGeneration
 							/*+ currentObj->getGeneration() * PROMOTIONAGEFACTOR*/) {
 				//fprintf(stderr, "(%d) promoting object of age %d\n",gLineInTrace, age);
 				if (currentObj->getGeneration() < GENERATIONS - 1) {

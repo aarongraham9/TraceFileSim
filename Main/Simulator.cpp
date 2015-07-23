@@ -183,6 +183,10 @@ void Simulator::allocateToRootset(string line){
 	length = line.find('\n',pos)-pos;
 	refCount = atoi(line.substr(pos,length).c_str());
 
+	// we need to take the overhead of the object into consideration
+	//size += sizeof(Object); // header
+	//size += refCount * sizeof(Object*); // slots
+
 	if (myMemManager->hasClassTable()) {
 		pos = line.find('C')+1;
 		length = line.find('\n',pos)-pos;

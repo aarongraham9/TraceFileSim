@@ -10,7 +10,7 @@
 extern int gLineInTrace;
 extern FILE* gLogFile;
 extern FILE* gDetLog;
-
+extern short promotionAge;
 extern FILE* gcFile;
 
 extern clock_t start, stop;
@@ -118,7 +118,7 @@ void TraversalCollector::getAllRoots() {
 		//we clear all rem sets and fill them again while performing the marking
 		myMemManager->clearRemSets();
 
-		for (i = 0; i < NUM_THREADS; i++) {
+		for (i = 0; i < maxThreads; i++) {
 			for (j = 0; j < myObjectContainer->getRootsetSize(i) ; j++) {
 				currentObj = myObjectContainer->getRoot(i, j);
 				if (currentObj && currentObj->getVisited() == 0) {
@@ -154,6 +154,9 @@ void TraversalCollector::breadthFirstCopying() {
 	//breadth first through the tree using a queue
 	while (!myQueue.empty()) {
 		currentObj = myQueue.front();
+		if (currentObj->getID() == NULL_OBJECT)
+			continue;
+
 		myQueue.pop();
 
 		int kids = currentObj->getPointersMax();
@@ -185,6 +188,9 @@ void TraversalCollector::depthFirstCopying() {
 	//depth first through the tree using a stack
 	while (!myStack.empty()) {
 		currentObj = myStack.top();
+		if (currentObj->getID() == NULL_OBJECT)
+			continue;
+		
 		myStack.pop();
 		int kids = currentObj->getPointersMax();
 		myAllocator->moveObject(currentObj);
@@ -278,7 +284,7 @@ int TraversalCollector::promotionPhase() {
 		if (currentObj && currentObj->getGeneration() < (GENERATIONS - 1)) {
 			int age = currentObj->getAge();
 			if (age
-					>= PROMOTIONAGE + PROMOTIONAGE * myGeneration
+					>= promotionAge + promotionAge * myGeneration
 							/*+ currentObj->getGeneration() * PROMOTIONAGEFACTOR*/) {
 				//fprintf(stderr, "(%d) promoting object of age %d\n",gLineInTrace, age);
 				if (currentObj->getGeneration() < GENERATIONS - 1) {

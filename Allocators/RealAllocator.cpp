@@ -76,7 +76,7 @@ void RealAllocator::initializeHeap(int heapSize) {
 	newSpaceOffset = heapSize / 2;
 	oldSpaceOffset = 0;
 	overallHeapSize = heapSize;
-	fprintf(stderr, "heap size %d\n", overallHeapSize);
+	fprintf(stderr, "Heap size %d bytes\n", overallHeapSize);
 
 	heap = (unsigned char*)malloc(heapSize * 8);
 	myLastSuccessAddressOldSpace = (size_t)&heap[0];
