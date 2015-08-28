@@ -2,8 +2,8 @@
 # Automatically-generated file. Do not edit!
 ################################################################################
 
-CPPFLAGS = -pg
-CXXFLAGS = -pg
+CPPFLAGS = -pg -Wall -lpthread
+CXXFLAGS = -pg -Wall -lpthread
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
@@ -20,7 +20,7 @@ CPP_DEPS += \
 %.o: ../%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
-	g++ -O0 -g3 -Wall -c -fmessage-length=0 -D VERSION=\"$(VERSION)\" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<" -pg
+	g++ -O0 -g3 -Wall -c -fmessage-length=0 -D VERSION=\"$(VERSION)\" -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<" -pg -Wall -lpthread
 	@echo 'Finished building: $<'
 	@echo ' '
 

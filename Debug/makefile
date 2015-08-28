@@ -3,8 +3,8 @@
 ################################################################################
 
 #added by Tristan
-CPPFLAGS = -pg -Wall -lpthread
-CXXFLAGS = -pg -Wall -lpthread
+CPPFLAGS := -pg -Wall -lpthread
+CXXFLAGS := -pg -Wall -lpthread
 
 
 -include ../makefile.init
