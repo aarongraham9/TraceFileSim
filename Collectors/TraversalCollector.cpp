@@ -13,7 +13,7 @@ extern FILE* gDetLog;
 
 extern FILE* gcFile;
 
-extern clock_t start, stop;
+extern struct timespec start, stop;
 
 namespace traceFileSimulator {
 
@@ -26,8 +26,8 @@ TraversalCollector::TraversalCollector() {
  */
 void TraversalCollector::collect(int reason) {
 	statCollectionReason = reason;
-	stop = clock();
-	double elapsed_secs = double(stop - start)/CLOCKS_PER_SEC;
+	clock_gettime(CLOCK_MONOTONIC, &stop);
+	double elapsed_secs = double(stop.tv_sec - start.tv_sec);
 	fprintf(stderr, "GC #%d at %0.3fs", statGcNumber + 1, elapsed_secs);
 
 	preCollect();
@@ -40,8 +40,8 @@ void TraversalCollector::collect(int reason) {
 
 	postCollect();
 
-	stop = clock();
-	elapsed_secs = double(stop - start)/CLOCKS_PER_SEC;
+	clock_gettime(CLOCK_MONOTONIC, &stop);
+	elapsed_secs = double(stop.tv_sec - start.tv_sec);
 	fprintf(stderr, " took %0.3fs\n", elapsed_secs);
 }
 
@@ -237,7 +237,7 @@ void TraversalCollector::initializeMarkPhase() {
 }
 
 void TraversalCollector::preCollect() {
-	start = clock();
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	statFreedDuringThisGC = 0;
 	statGcNumber++;
 //	if(myGeneration == GENERATIONS -1 ){

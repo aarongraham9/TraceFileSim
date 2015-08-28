@@ -58,6 +58,7 @@ public:
 	void dumpHeap();
 
 private:
+	void collect(int thread, int reason);
 	bool isAlreadyRoot(int thread, int id);
 	int* computeHeapsizes(int heapSize);
 	void initAllocators(int heapsize);
@@ -79,7 +80,6 @@ private:
 	ObjectContainer* myObjectContainers[GENERATIONS];
 	Collector* myGarbageCollectors[GENERATIONS];
 	int stats[GENERATIONS];
-
 };
 
 } 

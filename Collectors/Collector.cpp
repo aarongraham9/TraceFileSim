@@ -13,7 +13,7 @@ extern FILE* gDetLog;
 
 extern FILE* gcFile;
 
-extern clock_t start, stop;
+extern struct timespec start, stop;
 
 namespace traceFileSimulator {
 
@@ -83,8 +83,8 @@ void Collector::printStats() {
 			break;
 	}
 
-	stop = clock();
-	double elapsed_secs = double(stop - start)/CLOCKS_PER_SEC;
+	clock_gettime(CLOCK_MONOTONIC, &stop);
+	double elapsed_secs = double(stop.tv_sec - start.tv_sec);
 	if (elapsed_secs < shortestGC)
 		shortestGC = elapsed_secs;
 	if (elapsed_secs > longestGC)

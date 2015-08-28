@@ -3,8 +3,8 @@
 ################################################################################
 
 #added by Tristan
-CPPFLAGS = -pg
-CXXFLAGS = -pg
+CPPFLAGS = -pg -Wall -lpthread
+CXXFLAGS = -pg -Wall -lpthread
 
 
 -include ../makefile.init
@@ -57,7 +57,7 @@ version:
 TraceFileSimulator: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++  -o "TraceFileSimulator" $(OBJS) $(USER_OBJS) $(LIBS) -pg
+	g++  -o "TraceFileSimulator" $(OBJS) $(USER_OBJS) $(LIBS) $(CPPFLAGS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

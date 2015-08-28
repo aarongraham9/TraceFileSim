@@ -99,7 +99,6 @@ size_t RealAllocator::allocate(int size, int lower, int upper, size_t lastAddres
 	int contiguous = 0;
 	//nextFit search
 	int i,j,k,bit;
-	int passedBoundOnce = 0;
 	
     i = lower;
     while (i < upper) {

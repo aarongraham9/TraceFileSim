@@ -87,7 +87,8 @@ void CopyingCollector::sweep(){
 
 void CopyingCollector::enqueueAllRoots(){
 	Object* currentObj;
-	int i, j;
+	int i;
+	unsigned int j;
 
 	vector<Object*> roots;
 	for(i = 0 ; i < NUM_THREADS ; i++){

@@ -61,6 +61,7 @@ protected:
 	double longestGC;
 	double allGCs;
 	
+	bool isRegionBased;
 	MemoryManager* myMemManager;
 
 	traversalEnum order;

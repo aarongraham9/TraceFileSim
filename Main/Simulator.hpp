@@ -10,12 +10,14 @@
  
 #include <stdio.h>
 #include <fstream>
-#include <ctime>
+#include <time.h>
 #include "MemoryManager.hpp"
 #include <string>
 #include <stdlib.h>
+ #include <pthread.h>
 
-#define ONE_SECOND_PASSED ((double(clock() - start) / CLOCKS_PER_SEC) >= 1.0f)
+#define ONE_SECOND_PASSED (current.tv_sec - start.tv_sec >= 1.0f)
+//#define ONE_SECOND_PASSED ((double(clock() - start) / CLOCKS_PER_SEC) >= 1.0f)  // not feasible anymore due to multithreaded execution!
 
 using namespace std;
 
@@ -44,6 +46,7 @@ public:
 	int doNextStep();
 	void printStats();
 	void lastStats();
+	void cleanup();
 
 private:
 	void getNextLine(TraceFileLine *line);
@@ -56,15 +59,26 @@ private:
 	void readOperation(TraceFileLine line);
 	void storeOperation(TraceFileLine line);
 
-	ifstream myTraceFile;
+	static ifstream myTraceFile;
 	
-	int myLastStepWorked;
+	static int myLastStepWorked;
 	MemoryManager* myMemManager;
 	
 	//debug
 	int counter;
-	clock_t start;
+	struct timespec start;
+	struct timespec current;
 	int seconds;
+
+	static void *tracefileReader(void *This);
+	static TraceFileLine tracefileBuffer[TRACEFILE_BUFFER_SIZE];
+	static unsigned int tracefileBufferPointer;
+	static unsigned int tracefileBufferPointerInternal;
+	static unsigned int tracefileBufferPointerCounter;
+	static bool tracefileBufferStartup;
+	static bool tracefileBufferFull;
+
+	pthread_t tracefileReadThread;
 };
 
 } 
