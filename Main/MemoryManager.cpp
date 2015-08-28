@@ -26,6 +26,11 @@ MemoryManager::MemoryManager(int heapSize, int highWatermark, int collector, int
 	initGarbageCollectors(highWatermark);
 }
 
+// in case we have to do something else before we can call our collector
+void MemoryManager::collect(int thread, int reason) {
+	myGarbageCollectors[GENERATIONS-1]->collect(reason);
+}
+
 bool MemoryManager::loadClassTable(string traceFilePath) {
 	ifstream classFile;
 	size_t found;

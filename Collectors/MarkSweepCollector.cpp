@@ -13,7 +13,7 @@ extern FILE* gDetLog;
 
 FILE* gcFile;
 
-clock_t start, stop;
+struct timespec start, stop;
 
 namespace traceFileSimulator {
 
@@ -155,7 +155,7 @@ void MarkSweepCollector::initializeMarkPhase() {
 }
 
 void MarkSweepCollector::preCollect() {
-	start = clock();
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	statFreedDuringThisGC = 0;
 	statGcNumber++;
 //	if(myGeneration == GENERATIONS -1 ){

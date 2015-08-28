@@ -145,19 +145,8 @@ inline bool Allocator::isBitSet(unsigned int address) {
 	}
 
 	int byteNR = address / 8;
-
-	if ((unsigned char) myHeapBitMap[byteNR] == 255) {
-		return true;
-	}
-
 	int bit = 7 - address % 8;
-	int value = myHeapBitMap[byteNR] & 1 << bit;
-
-	if (value > 0) {
-		return true;
-	} else {
-		return false;
-	}
+	return ((myHeapBitMap[byteNR] & 1 << bit) > 0);
 }
 
 void Allocator::setBitUsed(unsigned int address) {

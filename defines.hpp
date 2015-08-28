@@ -8,10 +8,20 @@
 #ifndef _DEFINES_HPP_
 #define _DEFINES_HPP_
 
+// set this either to 1000 (10^3) or 1024 (2^10) depending on how you want to convert byte sizes
+#define MAGNITUDE_CONVERSION 1024
+
+// this parameter needs some fine tuning
+#define TRACEFILE_BUFFER_SIZE 10000
+
 #define NUM_THREADS		50
 #define ROOTSET_SIZE    50
 #define VISUALIZE_GCS 	1
 #define OBJECT_HEADER_SIZE 16
+
+#define CLASS_OBJECT    -1
+#define NO_THREAD_GROUP -1
+#define NULL_OBJECT     0
 
 //DEBUGGING
 #define DEBUG_MODE            0
@@ -66,5 +76,10 @@ enum gcReason {
 #define MAX32BIT 0xFFFFFFFF         //4294967295           
 #define MAX16BIT 0xFFFF             //65535   				
 #define MAX8BIT  0xFF               //255   
+
+#define CONVERT(size) (size >= 1073741824 ? size / 1073741824 : (size >= 1048576 ? size / 1048576 : (size >= 1024 ? size / 1024 : size)))
+#define MAGNITUDE(size) (size >= 1073741824 ? 'G' : (size >= 1048576 ? 'M' : (size >= 1024 ? 'K' : size)))
+
+#define CHECK_CLASS(object, string) (!strcmp(object->getClassName(), string))
 
 #endif

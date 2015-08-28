@@ -15,6 +15,15 @@ extern int forceAGCAfterEveryStep;
 
 namespace traceFileSimulator {
 
+TraceFileLine Simulator::tracefileBuffer[TRACEFILE_BUFFER_SIZE];
+unsigned int Simulator::tracefileBufferPointer;
+unsigned int Simulator::tracefileBufferPointerInternal;
+unsigned int Simulator::tracefileBufferPointerCounter;
+bool Simulator::tracefileBufferStartup;
+bool Simulator::tracefileBufferFull;
+ifstream Simulator::myTraceFile;
+int Simulator::myLastStepWorked;
+
 Simulator::Simulator(char* traceFilePath, int heapSize, int highWatermark, int garbageCollector, int traversal, int allocator) {
 	myLastStepWorked = 1;
 	myTraceFile.open(traceFilePath);
@@ -29,8 +38,84 @@ Simulator::Simulator(char* traceFilePath, int heapSize, int highWatermark, int g
 		fprintf(stdout, "No class table found\n");
 
 	counter = 0;
-	start = clock();
+
+	pthread_create(&tracefileReadThread, NULL, tracefileReader, this);
+	while (!tracefileBufferStartup); // we wait for the tracefile reader to warm up before we actually start processing
+
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	seconds = 0;
+	tracefileBufferPointerCounter = 0;
+	tracefileBufferStartup = false;
+}
+
+void *Simulator::tracefileReader(void *This) {
+	tracefileBufferPointer = 0;
+	tracefileBufferPointerInternal = 0;
+	tracefileBufferFull = false;
+
+	while (!myTraceFile.eof()) {
+		// we solve a full buffer by active waiting
+		while (tracefileBufferFull);
+
+		string currentLineString = "";
+		getline(myTraceFile, currentLineString);
+		char *currentLine = (char*) currentLineString.c_str();
+		gLineInTrace++;
+
+		//marcel: is this really necessary?
+		//initializeTraceFileLine(line);
+		tracefileBuffer[tracefileBufferPointerInternal].type = currentLine[0];
+
+		string buffer = "";
+		char attributeID;
+		int val, i = 1;
+		while (currentLine[i] != '\0') {
+			while (currentLine[i] == ' ') // burn extra whitespace between attributes
+				i++;
+
+			attributeID = currentLine[i++];
+			buffer.clear();
+			while (currentLine[i]!=' ' && currentLine[i]!='\0')
+				buffer.append(1, currentLine[i++]);
+
+			val = atoi(buffer.c_str());
+
+			switch (attributeID) {
+				case ('C'):
+					tracefileBuffer[tracefileBufferPointerInternal].classID = val; break;
+				case ('I'):
+					tracefileBuffer[tracefileBufferPointerInternal].fieldIndex = val; break;
+				case ('F'):
+					tracefileBuffer[tracefileBufferPointerInternal].fieldOffset = val; break;
+				case ('S'):
+					tracefileBuffer[tracefileBufferPointerInternal].size = val; break;
+				case ('V'):
+					tracefileBuffer[tracefileBufferPointerInternal].fieldType = val; break;
+				case ('O'):
+					tracefileBuffer[tracefileBufferPointerInternal].objectID = val; break;
+				case ('P'):
+					tracefileBuffer[tracefileBufferPointerInternal].parentID = val; break;
+				case ('#'):
+					tracefileBuffer[tracefileBufferPointerInternal].parentSlot = val; break;
+				case ('N'):
+					tracefileBuffer[tracefileBufferPointerInternal].maxPointers = val; break;
+				case ('T'):
+					tracefileBuffer[tracefileBufferPointerInternal].threadID = val; break;
+				default:
+					fprintf(stderr, "Invalid form in getNextLine, execution should never reach this line\n");
+					break;
+			}
+		}
+		tracefileBufferPointerInternal++;
+		if (tracefileBufferPointerInternal == 10)
+			tracefileBufferStartup = true;
+		if (tracefileBufferPointerInternal == TRACEFILE_BUFFER_SIZE) {
+			tracefileBufferFull = true;
+			tracefileBufferPointerInternal = 0;
+		}
+	}
+	myLastStepWorked = false;
+	return NULL;
 }
 
 void Simulator::initializeTraceFileLine(TraceFileLine *line) {
@@ -50,61 +135,13 @@ void Simulator::initializeTraceFileLine(TraceFileLine *line) {
 }
 
 void Simulator::getNextLine(TraceFileLine *line){
-	if(myTraceFile.eof()) {
-		myLastStepWorked = false;
-		return;
-	}
-
-	string currentLineString = "";
-	getline(myTraceFile, currentLineString);
-	char *currentLine = (char*) currentLineString.c_str();
-	gLineInTrace++;
-
-	if (!line)
-		return; // caller didn't care about the parsed attributes
-
-	initializeTraceFileLine(line);
-	line->type = currentLine[0];
-
-	string buffer = "";
-	char attributeID;
-	int val, i = 1;
-	while (currentLine[i] != '\0') {
-		while (currentLine[i] == ' ') // burn extra whitespace between attributes
-			i++;
-
-		attributeID = currentLine[i++];
-		buffer.clear();
-		while (currentLine[i]!=' ' && currentLine[i]!='\0')
-			buffer.append(1, currentLine[i++]);
-
-		val = atoi(buffer.c_str());
-
-		switch (attributeID) {
-			case ('C'):
-				line->classID = val; break;
-			case ('I'):
-				line->fieldIndex = val; break;
-			case ('F'):
-				line->fieldOffset = val; break;
-			case ('S'):
-				line->size = val; break;
-			case ('V'):
-				line->fieldType = val; break;
-			case ('O'):
-				line->objectID = val; break;
-			case ('P'):
-				line->parentID = val; break;
-			case ('#'):
-				line->parentSlot = val; break;
-			case ('N'):
-				line->maxPointers = val; break;
-			case ('T'):
-				line->threadID = val; break;
-			default:
-				fprintf(stderr, "Invalid form in getNextLine, execution should never reach this line\n");
-				break;
-		}
+	line = &tracefileBuffer[tracefileBufferPointer++];
+	tracefileBufferPointerCounter++;
+	if (tracefileBufferPointer == TRACEFILE_BUFFER_SIZE)
+		tracefileBufferPointer = 0;
+	if (tracefileBufferPointerCounter == TRACEFILE_BUFFER_SIZE * 0.7) { // we set a 70% margin for our buffer
+		tracefileBufferPointerCounter = 0;
+		tracefileBufferFull = false;
 	}
 }
 
@@ -115,8 +152,9 @@ void Simulator::lastStats() {
 int Simulator::doNextStep(){
 	TraceFileLine line;
 	getNextLine(&line);
+	clock_gettime(CLOCK_MONOTONIC, &current);
 	if (ONE_SECOND_PASSED) {
-		start = clock();
+		clock_gettime(CLOCK_MONOTONIC, &start);
 		seconds++;
 		printf("[%3ds] Line in tracefile: %7d\n", seconds, gLineInTrace);
 	}
@@ -202,6 +240,10 @@ void Simulator::referenceOperation(TraceFileLine line){
 		/* when fieldIndex is given */
 	}
 
+}
+
+void Simulator::cleanup() {
+	pthread_join(tracefileReadThread, NULL);
 }
 
 // Added by Mazder
