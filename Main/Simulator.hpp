@@ -49,8 +49,9 @@ public:
 	void cleanup();
 
 private:
-	void getNextLine(TraceFileLine *line);
 	void initializeTraceFileLine(TraceFileLine *line);
+	TraceFileLine getNextLine();
+	void getNextLine(TraceFileLine *line);
 	void allocateToRootset(TraceFileLine line);
 	void referenceOperation(TraceFileLine line);
 	void deleteRoot(TraceFileLine line);
@@ -74,11 +75,12 @@ private:
 	static TraceFileLine tracefileBuffer[TRACEFILE_BUFFER_SIZE];
 	static unsigned int tracefileBufferPointer;
 	static unsigned int tracefileBufferPointerInternal;
-	static unsigned int tracefileBufferPointerCounter;
 	static bool tracefileBufferStartup;
 	static bool tracefileBufferFull;
 
 	pthread_t tracefileReadThread;
+	static pthread_mutex_t tracefileMutex;
+	static pthread_cond_t tracefileCondition;
 };
 
 } 

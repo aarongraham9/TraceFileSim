@@ -12,17 +12,19 @@ using namespace std;
 extern int gLineInTrace;
 extern int gAllocations;
 extern int forceAGCAfterEveryStep;
+extern int multithreaded;
 
 namespace traceFileSimulator {
 
 TraceFileLine Simulator::tracefileBuffer[TRACEFILE_BUFFER_SIZE];
 unsigned int Simulator::tracefileBufferPointer;
 unsigned int Simulator::tracefileBufferPointerInternal;
-unsigned int Simulator::tracefileBufferPointerCounter;
 bool Simulator::tracefileBufferStartup;
 bool Simulator::tracefileBufferFull;
 ifstream Simulator::myTraceFile;
 int Simulator::myLastStepWorked;
+pthread_mutex_t Simulator::tracefileMutex;
+pthread_cond_t Simulator::tracefileCondition;
 
 Simulator::Simulator(char* traceFilePath, int heapSize, int highWatermark, int garbageCollector, int traversal, int allocator) {
 	myLastStepWorked = 1;
@@ -39,36 +41,115 @@ Simulator::Simulator(char* traceFilePath, int heapSize, int highWatermark, int g
 
 	counter = 0;
 
-	pthread_create(&tracefileReadThread, NULL, tracefileReader, this);
-	while (!tracefileBufferStartup); // we wait for the tracefile reader to warm up before we actually start processing
+	if (multithreaded) {
+		tracefileBufferStartup = false;
+		pthread_mutex_init(&tracefileMutex, NULL);
+		pthread_cond_init(&tracefileCondition, NULL);
+		pthread_create(&tracefileReadThread, NULL, tracefileReader, this);
+		while (!tracefileBufferStartup); // we wait for the tracefile reader to warm up before we actually start processing
+	}
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	seconds = 0;
-	tracefileBufferPointerCounter = 0;
-	tracefileBufferStartup = false;
+}
+
+void Simulator::initializeTraceFileLine(TraceFileLine *line) {
+	// a value of -1 indicates that the field is not present
+	line->type = ' ';
+	line->classID = 0; // class id's are 1-indexed, so special case (initialize to 0)
+	line->fieldIndex = -1;
+	line->fieldOffset = -1;
+	line->fieldSize  = -1;
+	line->fieldType = -1;
+	line->objectID = -1;
+	line->parentID = -1;
+	line->parentSlot = -1;
+	line->maxPointers = -1;
+	line->size = -1;
+	line->threadID = -1;
+}
+
+void Simulator::getNextLine(TraceFileLine *line){
+	if(myTraceFile.eof()) {
+		myLastStepWorked = false;
+		return;
+	}
+
+	string currentLineString = "";
+	getline(myTraceFile, currentLineString);
+	char *currentLine = (char*) currentLineString.c_str();
+	gLineInTrace++;
+
+	if (!line)
+		return; // caller didn't care about the parsed attributes
+
+	initializeTraceFileLine(line);
+	line->type = currentLine[0];
+
+	string buffer = "";
+	char attributeID;
+	int val, i = 1;
+	while (currentLine[i] != '\0') {
+		while (currentLine[i] == ' ') // burn extra whitespace between attributes
+			i++;
+
+		attributeID = currentLine[i++];
+		buffer.clear();
+		while (currentLine[i]!=' ' && currentLine[i]!='\0')
+			buffer.append(1, currentLine[i++]);
+
+		val = atoi(buffer.c_str());
+
+		switch (attributeID) {
+			case ('C'):
+				line->classID = val; break;
+			case ('I'):
+				line->fieldIndex = val; break;
+			case ('F'):
+				line->fieldOffset = val; break;
+			case ('S'):
+				line->size = val; break;
+			case ('V'):
+				line->fieldType = val; break;
+			case ('O'):
+				line->objectID = val; break;
+			case ('P'):
+				line->parentID = val; break;
+			case ('#'):
+				line->parentSlot = val; break;
+			case ('N'):
+				line->maxPointers = val; break;
+			case ('T'):
+				line->threadID = val; break;
+			default:
+				fprintf(stderr, "Invalid form in getNextLine, execution should never reach this line\n");
+				break;
+		}
+	}
 }
 
 void *Simulator::tracefileReader(void *This) {
 	tracefileBufferPointer = 0;
 	tracefileBufferPointerInternal = 0;
 	tracefileBufferFull = false;
+	string currentLineString;
+	string buffer;
+	char attributeID;
+	int val, i = 1;
+	char *currentLine;
 
 	while (!myTraceFile.eof()) {
-		// we solve a full buffer by active waiting
-		while (tracefileBufferFull);
+		pthread_mutex_lock(&tracefileMutex);
 
-		string currentLineString = "";
+		currentLineString = "";
 		getline(myTraceFile, currentLineString);
-		char *currentLine = (char*) currentLineString.c_str();
+		currentLine = (char*) currentLineString.c_str();
 		gLineInTrace++;
 
-		//marcel: is this really necessary?
-		//initializeTraceFileLine(line);
 		tracefileBuffer[tracefileBufferPointerInternal].type = currentLine[0];
 
-		string buffer = "";
-		char attributeID;
-		int val, i = 1;
+		buffer = "";
+		i = 1;
 		while (currentLine[i] != '\0') {
 			while (currentLine[i] == ' ') // burn extra whitespace between attributes
 				i++;
@@ -106,43 +187,36 @@ void *Simulator::tracefileReader(void *This) {
 					break;
 			}
 		}
+
 		tracefileBufferPointerInternal++;
 		if (tracefileBufferPointerInternal == 10)
 			tracefileBufferStartup = true;
-		if (tracefileBufferPointerInternal == TRACEFILE_BUFFER_SIZE) {
-			tracefileBufferFull = true;
+		if (tracefileBufferPointerInternal == TRACEFILE_BUFFER_SIZE)
 			tracefileBufferPointerInternal = 0;
-		}
+		if (tracefileBufferPointerInternal == tracefileBufferPointer)
+			pthread_cond_wait(&tracefileCondition, &tracefileMutex);
+		pthread_mutex_unlock(&tracefileMutex);
 	}
 	myLastStepWorked = false;
 	return NULL;
 }
 
-void Simulator::initializeTraceFileLine(TraceFileLine *line) {
-	// a value of -1 indicates that the field is not present
-	line->type = ' ';
-	line->classID = 0; // class id's are 1-indexed, so special case (initialize to 0)
-	line->fieldIndex = -1;
-	line->fieldOffset = -1;
-	line->fieldSize  = -1;
-	line->fieldType = -1;
-	line->objectID = -1;
-	line->parentID = -1;
-	line->parentSlot = -1;
-	line->maxPointers = -1;
-	line->size = -1;
-	line->threadID = -1;
-}
+TraceFileLine Simulator::getNextLine(){
+	pthread_mutex_lock(&tracefileMutex);
 
-void Simulator::getNextLine(TraceFileLine *line){
-	line = &tracefileBuffer[tracefileBufferPointer++];
-	tracefileBufferPointerCounter++;
+	TraceFileLine line = tracefileBuffer[tracefileBufferPointer];
+	tracefileBufferPointer++;
+
+	// roll over at the edge of the buffer
 	if (tracefileBufferPointer == TRACEFILE_BUFFER_SIZE)
 		tracefileBufferPointer = 0;
-	if (tracefileBufferPointerCounter == TRACEFILE_BUFFER_SIZE * 0.7) { // we set a 70% margin for our buffer
-		tracefileBufferPointerCounter = 0;
-		tracefileBufferFull = false;
-	}
+
+	// if we hit a certain emptiness of our buffer we start filling it again
+	if (abs(tracefileBufferPointerInternal - tracefileBufferPointer) <= TRACEFILE_BUFFER_SIZE * 0.7) // we set a 70% margin for our buffer
+		pthread_cond_signal(&tracefileCondition);
+
+	pthread_mutex_unlock(&tracefileMutex);
+	return line;
 }
 
 void Simulator::lastStats() {
@@ -151,7 +225,12 @@ void Simulator::lastStats() {
 
 int Simulator::doNextStep(){
 	TraceFileLine line;
-	getNextLine(&line);
+
+	if (multithreaded)
+		line = getNextLine();
+	else
+		getNextLine(&line);
+
 	clock_gettime(CLOCK_MONOTONIC, &current);
 	if (ONE_SECOND_PASSED) {
 		clock_gettime(CLOCK_MONOTONIC, &start);
@@ -168,7 +247,10 @@ int Simulator::doNextStep(){
 				allocateToRootset(line);
 				//next line is a '+', which we skip since it adds the newly created object
 				//to the rootset, which already happened in the simulator
-				getNextLine(NULL);
+				if (multithreaded)
+					(void)getNextLine();
+				else
+					getNextLine(NULL);
 				break;
 			case '+':
 				addToRoot(line);
@@ -243,7 +325,11 @@ void Simulator::referenceOperation(TraceFileLine line){
 }
 
 void Simulator::cleanup() {
-	pthread_join(tracefileReadThread, NULL);
+	if(multithreaded) {
+		pthread_join(tracefileReadThread, NULL);
+		pthread_mutex_destroy(&tracefileMutex);
+		pthread_cond_destroy(&tracefileCondition);
+	}
 }
 
 // Added by Mazder

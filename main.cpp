@@ -21,6 +21,7 @@ FILE* gLogFile;
 FILE* gDetLog;
 int forceAGCAfterEveryStep = 0;
 string globalFilename;
+int multithreaded = 0;
 
 int getHeapSizeInBytes(char *arg) {
 	char suffix;
@@ -107,13 +108,15 @@ int main(int argc, char *argv[]) {
 		gDetLog = fopen("detailed.log","w+");
 	}
 
-	char *filename    = argv[1];
+	//char *filename    = argv[1];
+	char *filename    = (char*)"/cygdrive/d/Tracefiles/SPECjvm2008/compiler_large.trace";
 	int heapSize      = setArgs(argc, argv, "--heapsize",  "-h");
 	int highWatermark = setArgs(argc, argv, "--watermark", "-w");
 	int traversal     = setArgs(argc, argv, "--traversal", "-t");
 	int collector     = setArgs(argc, argv, "--collector", "-c");
 	int allocator     = setArgs(argc, argv, "--allocator", "-a");
 	forceAGCAfterEveryStep = setArgs(argc, argv, "--force", "-f");
+	multithreaded     = setArgs(argc, argv, "--multithreaded", "-m");
 
 	if (highWatermark == -1)
 		highWatermark = 90;
@@ -123,14 +126,12 @@ int main(int argc, char *argv[]) {
 		collector = (int)traversalGC;
 	if (allocator == -1)
 		allocator = (int)realAlloc;
-	if (heapSize == -1) {
-		if (collector != (int)traversalGC)
-			heapSize = 200000;
-		else
-			heapSize = 600000;
-	}
+	if (heapSize == -1)
+		heapSize = 2097152;
 	if (forceAGCAfterEveryStep == -1)
 		forceAGCAfterEveryStep = 0;
+	if (multithreaded == -1)
+		multithreaded = 1;
 
 	CREATE_GLOBAL_FILENAME((string)filename);
 
@@ -154,6 +155,7 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "The allocator is '%s'\n", ALLOCATOR_STRING);
 	if (forceAGCAfterEveryStep)
 		fprintf(stderr, "Forcing a GC after every step\n");
+	fprintf(stderr, "The reading of the tracefile is done %s\n", multithreaded ? "in parallel (WIP)" : "sequential");
 
 	//start measuring time
 	struct timespec start;
