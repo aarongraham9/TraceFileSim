@@ -14,9 +14,11 @@
 #include "../Allocators/RealAllocator.hpp"
 #include "../Allocators/BasicAllocator.hpp"
 #include "../Allocators/NextFitAllocator.hpp"
+#include "../Allocators/RegionBasedAllocator.hpp"
 #include "../Collectors/Collector.hpp"
 #include "../Collectors/MarkSweepCollector.hpp"
 #include "../Collectors/TraversalCollector.hpp"
+#include "../Collectors/RegionBasedMarkSweepCollector.hpp"
 #include "../defines.hpp"
 #include <string>
 #include <vector>
@@ -35,9 +37,13 @@ public:
 	virtual ~MemoryManager();
 	//operations possible from trace file
 	int allocateObjectToRootset(int thread, int id, int size, int refCount, int classID);
+	int regionAllocateObjectToRootset(int thread, int id, int size, int refCount, int classID); //region-based; by Tristan
+	inline void* postAllocateObjectToRootset(int thread, int id, int size, int refCount, int classID,void *address);  //added by Tristan
 	int requestRootDelete(int thread, int id);
 	int requestRootAdd(int thread, int id);
+	inline int preSetPointer(int thread, int parentID, int parentSlot, int childID); //added by Tristan
 	int setPointer(int thread, int parentID, int parentSlot, int childID);
+	int regionSetPointer(int thread, int parentID, int parentSlot, int childID); //added by Tristan
 	void setStaticPointer(int classID, int fieldOffset, int objectID);
 	void requestDelete(Object* object, int gGC);
 	void requestFree(Object* object);
@@ -57,7 +63,13 @@ public:
 	bool hasClassTable();
 	void forceGC();
 	void lastStats();
+	void lastStats(long trigReason);
 	void dumpHeap();
+
+	// added by mazder for escape analysis
+	void markObject(Object* Obj);
+	int inline getClassTableSize(){ return (int)classTable.size();}
+
 
 private:
 	bool isAlreadyRoot(int thread, int id);
@@ -66,6 +78,7 @@ private:
 	void initContainers();
 	void initGarbageCollectors(int highWatermark);
 	void *allocate(int size, int generation);
+	void *allocate(int size, int generation, int thread);
 	void addRootToContainers(Object* object, int thread);
 	void addToContainers(Object* object);
 	void *shift(int size);
@@ -81,7 +94,6 @@ private:
 	ObjectContainer* myObjectContainers[GENERATIONS];
 	Collector* myGarbageCollectors[GENERATIONS];
 	int stats[GENERATIONS];
-
 };
 
 } 

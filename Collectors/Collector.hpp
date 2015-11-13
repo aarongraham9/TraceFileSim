@@ -17,6 +17,7 @@
 #include <ctime>
 #include "../defines.hpp"
 #include <stdio.h>
+#include "../Main/Region.hpp"
 
 using namespace std;
 
@@ -30,10 +31,12 @@ public:
 	void setEnvironment(Allocator* allocator, ObjectContainer* container, MemoryManager* memManager, int watermark, int generation, int traversal);
 	virtual ~Collector();
 	virtual void collect(int reason);
+	virtual void collect(int reason,int thread);
 	virtual void checkWatermark();
 	void printStats();
 	virtual int promotionPhase();
 	void lastStats();
+	void lastStats(long trigReason);
 	void updatePointers();
 	void addForwardingEntry(void *oldAddress, void *newAddress);
 	void clearForwardingEntries();

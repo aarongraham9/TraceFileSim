@@ -22,13 +22,40 @@ Object::Object(int id, void *address, int size, int maxPointers, char *className
 		rawObject->pointers[i] = NULL;
 	myGeneration = 0;
 	myAge = 0;
-	myName = className;
-
+	myName   = className;
+	
 	// stats
 	isVisited = false;
 	freed = 0;
 	forwarded = false;
 }
+
+Object::Object(int tid, int id, void *address, int size, int maxPointers, char *className) {
+	myId = id;
+	rawObject = (RawObject *) address;
+	rawObject->associatedObject = this;
+	mySize = size;
+	myPointersMax = maxPointers;
+	for (int i=0; i<myPointersMax; i++)
+		rawObject->pointers[i] = NULL;
+	myGeneration = 0;
+	myAge = 0;
+	myName   = className;
+
+	// stats
+	isVisited = false;
+	freed = 0;
+	forwarded = false;
+
+	// added by mazder
+	myTid = tid;
+	escaped = false;
+	//start measuring life time
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	born = 1000000*tv.tv_sec+tv.tv_usec;
+}
+
 
 void Object::setGeneration(int generation){
 	myGeneration = generation;
@@ -98,6 +125,10 @@ void Object::updateAddress(void *newAddress) {
 
 void Object::setVisited(bool value){
 	isVisited = value;
+}
+
+unsigned long Object::getRegion(unsigned long heapStart,int regionSize) {
+	return (unsigned long)(((unsigned long)rawObject-heapStart)/(double)regionSize);
 }
 
 Object::~Object() {}

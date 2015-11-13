@@ -4,8 +4,14 @@
  *  Created on: 2013-09-03
  *      Author: GarCoSim
  */
-
+#include<sys/time.h>
 #include "ObjectContainer.hpp"
+
+
+extern double minObjectLifeTime;
+extern double maxObjectLifeTime; 
+extern double sumObjectLifeTime;
+
 
 extern int gLineInTrace;
 
@@ -81,7 +87,7 @@ int ObjectContainer::addToRoot(Object* newObject, int thread) {
 vector<Object*> ObjectContainer::getRoots(int thread) {
 	vector<Object*> roots;
 
-  std::map<int, Object*>::iterator it;
+	std::tr1::unordered_map<int, Object*>::iterator it;
 	for (it=rootset[thread].begin(); it!=rootset[thread].end(); it++)
 		roots.push_back(it->second);
 
@@ -95,7 +101,7 @@ vector<Object*> ObjectContainer::getRoots(int thread) {
 vector<Object*> ObjectContainer::getLiveObjects() {
 	vector<Object*> objects;
 
-  std::map<int, Object*>::iterator it;
+	std::tr1::unordered_map<int, Object*>::iterator it;
 	for (it=objectMap.begin(); it!=objectMap.end(); it++)
 		objects.push_back(it->second);
 
@@ -136,9 +142,26 @@ int ObjectContainer::deleteObject(int objectID, bool deleteFlag) {
 		return -1;
 	}
 
+	// added by mazder
+	/*************************/
+	float lifeTime;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	lifeTime =((1000000*tv.tv_sec+tv.tv_usec) - object->born)/1.0e6;
+
+	if( minObjectLifeTime>lifeTime){
+		minObjectLifeTime = lifeTime;
+	}
+	if( maxObjectLifeTime<lifeTime){
+		maxObjectLifeTime = lifeTime;
+	}
+	sumObjectLifeTime = sumObjectLifeTime + lifeTime;
+	/*************************/
+
 	objectMap.erase(objectID);
 	if (deleteFlag)
 		delete (object);
+
 	return 0;
 }
 
@@ -174,7 +197,7 @@ vector<Object*> ObjectContainer::getAllStaticReferences() {
 
 	int i;
 	for (i=0; i<(int)classReferences.size(); i++) {
-    std::map<int, Object*>::iterator it;
+		std::tr1::unordered_map<int, Object*>::iterator it;
 		for (it=classReferences[i].begin(); it!=classReferences[i].end(); it++)
 			if (it->second)
 				staticReferences.push_back(it->second);

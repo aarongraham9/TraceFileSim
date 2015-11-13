@@ -8,8 +8,6 @@
 #ifndef _DEFINES_HPP_
 #define _DEFINES_HPP_
 
-#define VERSION 3.01
-
 #define NUM_THREADS		50
 #define ROOTSET_SIZE    50
 #define VISUALIZE_GCS 	1
@@ -38,13 +36,15 @@ enum traversalEnum {
 
 enum collectorEnum {
 						markSweepGC = 0,
-						traversalGC
-				};
+						traversalGC,
+						markSweepRB
+				   };
 
 enum allocatorEnum {
 						realAlloc = 0,
 						basicAlloc,
-						nextFitAlloc
+						nextFitAlloc,
+						regionBased
 				};
 
 enum gcReason {
@@ -58,9 +58,9 @@ enum gcReason {
 				};
 
 // create some fancy strings for debug output
-#define TRAVERSAL_STRING (traversal == (int)breadthFirst ? "breadthFirst" : (traversal == (int)depthFirst ? "depthFirst" : "hotness"))
-#define COLLECTOR_STRING (collector == (int)traversalGC ? "traversal" : (collector == (int)markSweepGC ? "markSweep" : "copying"))
-#define ALLOCATOR_STRING "real"
+#define TRAVERSAL_STRING (traversal == (int)breadthFirst ? "breadthFirst" : (traversal == (int)depthFirst  ? "depthFirst" : "hotness"))
+#define COLLECTOR_STRING (collector == (int)traversalGC  ? "traversal"    : (collector == (int)markSweepGC ? "markSweep"  : (collector == (int)markSweepRB ? "markSweepRB":"copying")))
+#define ALLOCATOR_STRING (allocator == (int)basicAlloc ? "basic":(allocator == (int)regionBased ? "regionBased" : "nextFit"))
 
 #define CREATE_GLOBAL_FILENAME(name) (globalFilename = (name).substr(0, (name).find(".trace")))
 
@@ -69,5 +69,8 @@ enum gcReason {
 #define MAX32BIT 0xFFFFFFFF         //4294967295           
 #define MAX16BIT 0xFFFF             //65535   				
 #define MAX8BIT  0xFF               //255   
+
+#define  THREADBASED 1 //if thread-based region-based allocation; by Tristan
+#define MAX_OBJ_ID 2147483647				
 
 #endif
